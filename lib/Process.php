@@ -97,6 +97,9 @@ abstract class Process implements ProcessInterface
                 // find current PID
                 $this->pid = \posix_getpid();
 
+                // install default class signal handlers
+                $this->installSignalHandlers();
+
                 // terminate after process ends
                 $result = $this->main();
                 exit(isset($result) ? $result : self::EXIT_NORMAL);
@@ -162,6 +165,8 @@ abstract class Process implements ProcessInterface
         // initialize signal queue
         if (!isset($this->handlers[$signal])) {
             $this->handlers[$signal] = new \SplPriorityQueue();
+            // subscribe for this signal
+            \pcntl_signal($signal, array($this, 'handle'));
         }
 
         // register a callback
@@ -217,9 +222,7 @@ abstract class Process implements ProcessInterface
      */
     public function stop()
     {
-        $this->signal(\SIGTERM);
-
-        return $this;
+        return $this->signal(\SIGTERM);
     }
 
     /**
@@ -232,9 +235,7 @@ abstract class Process implements ProcessInterface
      */
     public function kill()
     {
-        $this->signal(\SIGKILL);
-
-        return $this;
+        return $this->signal(\SIGKILL);
     }
 
     /**
@@ -248,14 +249,25 @@ abstract class Process implements ProcessInterface
      */
     public function wait($wait = true)
     {
-        $result = \pcntl_waitpid($this->pid, $status, $wait ? 0 : \WNOHANG);
-
         // check for error
-        if ($result === -1) {
+        if (\pcntl_waitpid($this->pid, $status, $wait ? 0 : \WNOHANG) === -1) {
             throw new Exception\PosixException();
         }
 
         // return process status
         return $status;
+    }
+
+    /**
+     * This method should be overriden in subclasses in order to install default signal handlers.
+     *
+     * @return Process Self instance.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    protected function installSignalHandlers()
+    {
+        // dummy method - implemented as ampty to not force children classes to add it if not used
+        return $this;
     }
 }

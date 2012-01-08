@@ -35,5 +35,5 @@ interface ContinousProcessInterface
      * @version 0.0.1
      * @since 0.0.1
      */
-    protected function tick();
+    public function tick();
 }
