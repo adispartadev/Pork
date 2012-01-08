@@ -11,6 +11,10 @@
 
 namespace Pork;
 
+// dependencies
+use Exception\InvalidArgumentException;
+use Exception\PosixException;
+
 /**
  * Basic process routines.
  *
@@ -30,6 +34,15 @@ abstract class Process implements ProcessInterface
      * @since 0.0.1
      */
     const EXIT_NORMAL = 0;
+
+    /**
+     * Critical exception that causes process to terminate.
+     *
+     * @var int
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    const EXIT_UNHANDLED_EXCEPTION = 1;
 
     /**
      * Process PID.
@@ -81,7 +94,7 @@ abstract class Process implements ProcessInterface
      * Starts process.
      *
      * @return int Created process PID.
-     * @throws Exception\PosixException When fork() call fails.
+     * @throws PosixException When fork() call fails.
      * @version 0.0.1
      * @since 0.0.1
      */
@@ -90,18 +103,22 @@ abstract class Process implements ProcessInterface
         // fork here!
         switch ($pid = \pcntl_fork()) {
             case -1:
-                throw new Exception\PosixException();
+                throw new PosixException();
 
             // child - new process
             case 0:
                 // find current PID
                 $this->pid = \posix_getpid();
 
-                // install default class signal handlers
-                $this->installSignalHandlers();
+                try {
+                    // install default class signal handlers
+                    $this->installSignalHandlers();
 
-                // terminate after process ends
-                $result = $this->main();
+                    // terminate after process ends
+                    $result = $this->main();
+                } catch(\Exception $e) {
+                    $result = self::EXIT_UNHANDLED_EXCEPTION;
+                }
                 exit(isset($result) ? $result : self::EXIT_NORMAL);
 
             // parent
@@ -145,7 +162,7 @@ abstract class Process implements ProcessInterface
      * @param callback $callback Callback which will handle given signal.
      * @param int $preiority Priority for given callback.
      * @return Process Self instance.
-     * @throws Exception\InvalidArgumentException When argument of invalid type is passed.
+     * @throws InvalidArgumentException When argument of invalid type is passed.
      * @version 0.0.1
      * @since 0.0.1
      */
@@ -153,13 +170,13 @@ abstract class Process implements ProcessInterface
     {
         // check arguments types
         if (!\is_int($signal)) {
-            throw new Exception\InvalidArgumentException(\sprintf('$signal must be an integer, %s given.', \gettype($signal)));
+            throw new InvalidArgumentException(\sprintf('$signal must be an integer, %s given.', \gettype($signal)));
         }
         if (!\is_callable($callback)) {
-            throw new Exception\InvalidArgumentException('$callback is not callable.');
+            throw new InvalidArgumentException('$callback is not callable.');
         }
         if (!\is_int($priority)) {
-            throw new Exception\InvalidArgumentException(\sprintf('$priority must be an integer, %s given.', \gettype($priority)));
+            throw new InvalidArgumentException(\sprintf('$priority must be an integer, %s given.', \gettype($priority)));
         }
 
         // initialize signal queue
@@ -192,8 +209,8 @@ abstract class Process implements ProcessInterface
      * Sends given signal to process.
      *
      * @return Process Self instance.
-     * @throws Exception\InvalidArgumentException When argument of invalid type is passed.
-     * @throws Exception\PosixException When sending signal fails.
+     * @throws InvalidArgumentException When argument of invalid type is passed.
+     * @throws PosixException When sending signal fails.
      * @version 0.0.1
      * @since 0.0.1
      */
@@ -201,12 +218,12 @@ abstract class Process implements ProcessInterface
     {
         // check argument type
         if (!\is_int($signal)) {
-            throw new Exception\InvalidArgumentException(\sprintf('$signal must be an integer, %s given.', \gettype($signal)));
+            throw new InvalidArgumentException(\sprintf('$signal must be an integer, %s given.', \gettype($signal)));
         }
 
         // sends signal to process
         if (!\posix_kill($this->pid, $signal)) {
-            throw new Exception\PosixException();
+            throw new PosixException();
         }
 
         return $this;
@@ -216,7 +233,7 @@ abstract class Process implements ProcessInterface
      * Sends process notification to stop.
      *
      * @return Process Self instance.
-     * @throws Exception\PosixException When sending signal fails.
+     * @throws PosixException When sending signal fails.
      * @version 0.0.1
      * @since 0.0.1
      */
@@ -229,7 +246,7 @@ abstract class Process implements ProcessInterface
      * Literaly kills the process.
      *
      * @return Process Self instance.
-     * @throws Exception\PosixException When sending signal fails.
+     * @throws PosixException When sending signal fails.
      * @version 0.0.1
      * @since 0.0.1
      */
@@ -243,7 +260,7 @@ abstract class Process implements ProcessInterface
      *
      * @param bool $wait Whether to wait for process, or just check.
      * @return int Process exit code.
-     * @throws Exception\PosixException When error occurs.
+     * @throws PosixException When error occurs.
      * @version 0.0.1
      * @since 0.0.1
      */
@@ -251,7 +268,7 @@ abstract class Process implements ProcessInterface
     {
         // check for error
         if (\pcntl_waitpid($this->pid, $status, $wait ? 0 : \WNOHANG) === -1) {
-            throw new Exception\PosixException();
+            throw new PosixException();
         }
 
         // return process status

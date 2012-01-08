@@ -57,7 +57,7 @@ class ContinousCallbackProcess extends CallbackProcess implements ContinousProce
             return CallbackProcess::EXIT_CALLBACK_EXCEPTION;
         }
 
-        // normal exit after shutdow
+        // normal exit after shutdown
         return \Pork\Process::EXIT_NORMAL;
     }
 

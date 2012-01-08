@@ -29,7 +29,7 @@ class CallbackProcess extends \Pork\Process
      * @version 0.0.1
      * @since 0.0.1
      */
-    const EXIT_CALLBACK_EXCEPTION = 1;
+    const EXIT_CALLBACK_EXCEPTION = 2;
 
     /**
      * Callback to call.

@@ -52,7 +52,7 @@ abstract class ContinousProcess extends \Pork\Process implements ContinousProces
             }
         }
 
-        // normal exit after shutdow
+        // normal exit after shutdown
         return \Pork\Process::EXIT_NORMAL;
     }
 
@@ -70,7 +70,7 @@ abstract class ContinousProcess extends \Pork\Process implements ContinousProces
     /**
      * Installs shutdown signal handler.
      *
-     * @return ContinousCallbackProcess Self instance.
+     * @return ContinousProcess Self instance.
      * @version 0.0.1
      * @since 0.0.1
      */
