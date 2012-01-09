@@ -20,6 +20,6 @@ namespace Pork\Exception;
  * @since 0.0.1
  * @package Pork
  */
-class RuntimeException extends \RuntimeExceptions implements \Pork\Exception
+class RuntimeException extends \RuntimeException implements \Pork\Exception
 {
 }

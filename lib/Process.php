@@ -45,6 +45,15 @@ abstract class Process implements ProcessInterface
     const EXIT_UNHANDLED_EXCEPTION = 1;
 
     /**
+     * Default no-op timeout.
+     *
+     * @var int
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    const NOOP_TIME = 1;
+
+    /**
      * Process PID.
      *
      * @var int
@@ -73,7 +82,9 @@ abstract class Process implements ProcessInterface
      */
     public function __construct($pid = null)
     {
-        $this->pid = $pid;
+        if (isset($pid)) {
+            $this->setPid($pid);
+        }
     }
 
     /**
@@ -81,13 +92,35 @@ abstract class Process implements ProcessInterface
      *
      * null PID means, that process is not running.
      *
-     * @return int Already running process PID.
+     * @return int Current process PID.
      * @version 0.0.1
      * @since 0.0.1
      */
     public function getPid()
     {
         return $this->pid;
+    }
+
+    /**
+     * Sets process PID.
+     *
+     * @internal You won't probably need that - if you want persistent control over process use {@link ProcessControl}.
+     * @param int $pid Already running process PID.
+     * @return Process Self instance.
+     * @throws InvalidArgumentException When argument of invalid type is passed.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function setPid($pid)
+    {
+        // check argument type
+        if (!\is_int($pid)) {
+            throw new InvalidArgumentException(\sprintf('$pid must be an integer, %s given.', \gettype($pid)));
+        }
+
+        $this->pid = $pid;
+
+        return $this;
     }
 
     /**
@@ -232,6 +265,8 @@ abstract class Process implements ProcessInterface
     /**
      * Sends process notification to stop.
      *
+     * Note: This method just sends a signal, does not guarantee, that process will immediatly stop. You have to continously check {@link Process::isRunning()} if process has stopped, or use {@link Process::kill()} to immediatly kill a process.
+     *
      * @return Process Self instance.
      * @throws PosixException When sending signal fails.
      * @version 0.0.1
@@ -245,6 +280,8 @@ abstract class Process implements ProcessInterface
     /**
      * Literaly kills the process.
      *
+     * Note: This method just immediatly kills a process, without leaving a chance to execute shutdown tasks (like dumping data, closing I/O handles). If you want to cleanly stop a process use {@link Process::stop()}.
+     *
      * @return Process Self instance.
      * @throws PosixException When sending signal fails.
      * @version 0.0.1
@@ -253,6 +290,69 @@ abstract class Process implements ProcessInterface
     public function kill()
     {
         return $this->signal(\SIGKILL);
+    }
+
+    /**
+     * Sends reload request to a thread.
+     *
+     * @return Process Self instance.
+     * @throws PosixException When sending signal fails.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function hup()
+    {
+        return $this->signal(\SIGHUP);
+    }
+
+    /**
+     * Hard restart of a process.
+     *
+     * @param float $timeout Optional timeout which we want to wait until process dies.
+     * @return Process Self instance.
+     * @throws PosixException When sending signal fails.
+     * @throws InvalidArgumentException When argument of invalid type is passed.
+     * @throws Exception\TimeoutException When process does not stop within given timeout.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function restart($timeout = null)
+    {
+        $this->stop();
+
+        // build checking closure
+        if (isset($timeout)) {
+            // check argument type
+            if (!\is_float($timeout) && !\is_int($timeout)) {
+                throw new InvalidArgumentException(\sprintf('$timeout must be a float or an integer, %s given.', \gettype($timeout)));
+            }
+
+            $end = \microtime(true) + $timeout;
+
+            $check = function() use ($end)
+            {
+                return \microtime(true) < $end;
+            };
+        } else {
+            // no timeout
+            $check = function()
+            {
+                return true;
+            };
+        }
+
+        // waits until process stop
+        while ($this->isRunning()) {
+            // enought of waiting!
+            if (!$check()) {
+                throw new Exception\TimeoutException($this->pid);
+            }
+
+            // wait a moment - it can sometimes take time to end process (I/O, dumping data, etc.)
+            $this->noop();
+        }
+
+        return $this->start();
     }
 
     /**
@@ -286,5 +386,43 @@ abstract class Process implements ProcessInterface
     {
         // dummy method - implemented as ampty to not force children classes to add it if not used
         return $this;
+    }
+
+    /**
+     * Sleeps to avoid CPU cycles usage.
+     *
+     * @param int $interval Time interval to wait.
+     * @return Process Self instance.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    protected function noop($interval = self::NOOP_TIME)
+    {
+        \sleep($interval);
+
+        return $this;
+    }
+
+    /**
+     * Clears PID of new instance.
+     *
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function __clone()
+    {
+        unset($this->pid);
+    }
+
+    /**
+     * Directly call process.
+     *
+     * @return int Created process PID.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function __invoke()
+    {
+        return $this->start();
     }
 }
