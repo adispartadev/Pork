@@ -23,7 +23,7 @@ use Exception\InvalidArgumentException;
  * @since 0.0.1
  * @package Pork
  */
-class PidFile implements StrategyInterface
+class PidFile extends \Pork\SerializationHandler implements StrategyInterface
 {
     /**
      * PID storage file.
@@ -161,5 +161,63 @@ class PidFile implements StrategyInterface
         unset($this->pid);
 
         return $this;
+    }
+
+    /**
+     * Produces plain array container with data.
+     *
+     * This method is used by ZendFramework during many serialization routines.
+     *
+     * @return array Plain array with data.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function toArray()
+    {
+        return array(
+            'pidFile' => $this->pidFile,
+        );
+    }
+
+    /**
+     * Produces string description of object.
+     *
+     * This method is used by ZendFramework during various output routines.
+     *
+     * @return string String description of object.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function toString()
+    {
+        return \sprintf('[Pork\\Control\\PidFile, %s]',$this->pidFile);
+    }
+
+    /**
+     * Recovers instance from plain data.
+     *
+     * @param array $data Data of object to restore.
+     * @param PidFile $instance Optionaly, target instance which should be recovered.
+     * @return PidFile Recovered instance.
+     * @throws InvalidArgumentException When argument of invalid type is passed.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public static function fromArray(array $data, \Pork\SerializationHandler $instance = null)
+    {
+        if (isset($instance) && !$instance instanceof self) {
+            throw new InvalidArgumentException(\sprintf('Pork\\Control\\PidFile::fromArray() can work only on Pork\\Control\\PidFile instances - %s given.', \get_class($instance)));
+        }
+
+        $pidFile = $data['pidFile'];
+
+        // create new instance
+        if (!isset($instance)) {
+            $instance = new static($pidFile);
+        } else {
+            $instance->pidFile = $pidFile;
+        }
+
+        return $instance;
     }
 }

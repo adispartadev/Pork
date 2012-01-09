@@ -247,7 +247,7 @@ abstract class Daemon extends \Pork\Process
             if ($this->reload && (!isset($result) || $result === 0)) {
                 $this->reload = false;
                 $this->shutdown = false;
-                $this->realod();
+                $this->reload();
             }
         }
 
@@ -340,5 +340,56 @@ abstract class Daemon extends \Pork\Process
     {
         // dummy method - implemented as ampty to not force children classes to add it if not used
         return $this;
+    }
+
+    /**
+     * Produces plain array container with data.
+     *
+     * This method is used by ZendFramework during many serialization routines.
+     *
+     * @return array Plain array with data.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function toArray()
+    {
+        // core data
+        $data = parent::toArray();
+
+        // additional daemon info
+        $data['outputLog'] = $this->outputLog;
+        $data['errorLog'] = $this->errorLog;
+        $data['uid'] = $this->uid;
+        $data['gid'] = $this->gid;
+
+        return $data;
+    }
+
+    /**
+     * Recovers instance from plain data.
+     *
+     * @param array $data Data of object to restore.
+     * @param Daemon $instance Optionaly, target instance which should be recovered.
+     * @return Daemon Recovered instance.
+     * @throws InvalidArgumentException When argument of invalid type is passed.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public static function fromArray(array $data, \Pork\SerializationHandler $instance = null)
+    {
+        if (isset($instance) && !$instance instanceof self) {
+            throw new InvalidArgumentException(\sprintf('Pork\\Process\\Daemon::fromArray() can work only on Pork\\Process\\Daemon instances - %s given.', \get_class($instance)));
+        }
+
+        // core data
+        $instance = parent::fromArray($data, $instance);
+
+        // additional daemon info
+        $instance->outputLog = $data['outputLog'];
+        $instance->errorLog = $data['errorLog'];
+        $instance->uid = $data['uid'];
+        $instance->gid = $data['gid'];
+
+        return $instance;
     }
 }

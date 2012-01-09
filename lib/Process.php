@@ -24,7 +24,7 @@ use Exception\PosixException;
  * @since 0.0.1
  * @package Pork
  */
-abstract class Process implements ProcessInterface
+abstract class Process extends \Pork\SerializationHandler implements ProcessInterface
 {
     /**
      * Normal exit status.
@@ -485,5 +485,131 @@ abstract class Process implements ProcessInterface
     public function __invoke()
     {
         return $this->start();
+    }
+
+    /**
+     * Produces plain array container with data.
+     *
+     * This method is used by ZendFramework during many serialization routines.
+     *
+     * @return array Plain array with data.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function toArray()
+    {
+        return array(
+            'pid' => $this->pid,
+        );
+    }
+
+    /**
+     * Produces string description of object.
+     *
+     * This method is used by ZendFramework during various output routines.
+     *
+     * @return string String description of object.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function toString()
+    {
+        return \sprintf('[Pork\\Process, %s, %s]', \get_class($this), isset($this->pid) ? \sprintf('PID: %d', $this->pid) : 'stopped');
+    }
+
+    /**
+     * Recovers instance from plain data.
+     *
+     * @param array $data Data of object to restore.
+     * @param Process $instance Optionaly, target instance which should be recovered.
+     * @return Process Recovered instance.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public static function fromArray(array $data, SerializationHandler $instance = null)
+    {
+        if (isset($instance) && !$instance instanceof self) {
+            throw new InvalidArgumentException(\sprintf('Pork\\Process::fromArray() can work only on Pork\\Process instances - %s given.', \get_class($instance)));
+        }
+
+        $pid = $data['pid'];
+
+        // create new instance
+        if (!isset($instance)) {
+            $instance = new static($pid);
+        } else {
+            $instance->pid = $pid;
+        }
+
+        return $instance;
+    }
+
+    /**
+     * Properties overloading (accessing).
+     *
+     * Magic PHP5 call.
+     *
+     * @param string $name Property name.
+     * @return mixed Property value.
+     * @throws InvalidArgumentException When unknown property name is passed.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function __get($name)
+    {
+        switch ($name) {
+            case 'pid':
+                return $this->getPid();
+
+            default:
+                throw new InvalidArgumentException(\sprintf('Unknown property "%s".', $name));
+        }
+    }
+
+    /**
+     * Properties overloading (mutating).
+     *
+     * Magic PHP5 call.
+     *
+     * @param string $name Property name.
+     * @param mixed $value Property value.
+     * @throws InvalidArgumentException When unknown property name is passed.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function __set($name, $value)
+    {
+        switch ($name) {
+            case 'pid':
+                $this->setPid($value);
+                break;
+
+            default:
+                throw new InvalidArgumentException(\sprintf('Unknown property "%s".', $name));
+        }
+    }
+
+    /**
+     * Allows to use any signal as method name.
+     *
+     * @param string $name Signal name.
+     * @param array $arguments List of method arguments (not used by signals thought).
+     * @return mixed Method call results.
+     * @throws Exception\BadMethodCallException When method that can not be mapped to a signal was called.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function __call($name, array $arguments)
+    {
+        // create constant name
+        $name = \strtoupper($name);
+
+        // check if it's a proper signal name
+        if (\substr($name, 0, 3) === 'SIG' && \defined($name)) {
+            return $this->signal(\constant($name));
+        }
+
+        // if we came here, no signal with such name was available
+        throw new Exception\BadMethodCallException(\sprintf('Sorry, I don\'t know how to call "%s".', $name));
     }
 }
