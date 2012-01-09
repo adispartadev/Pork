@@ -72,6 +72,15 @@ abstract class Process implements ProcessInterface
     protected $handlers = array();
 
     /**
+     * Assigned controller.
+     *
+     * @var Control\StrategyInterface
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    protected $control;
+
+    /**
      * Initializes a process.
      *
      * By default you create an empty process, but you can pass PID to create instance asociated with it as a controller.
@@ -124,15 +133,43 @@ abstract class Process implements ProcessInterface
     }
 
     /**
+     * Sets process control.
+     *
+     * Note: Don't attach control handler to already running process, it will override it's PID with the one provided by handler!
+     *
+     * @param Control\StrategyInterface $control Persistent control handler.
+     * @return Process Self instance.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public function setControl(Control\StrategyInterface $control)
+    {
+        $this->control = $control;
+
+        // automatically bind information from controller
+        if ($control->isRunning()) {
+            $this->pid = $control->getPid();
+        }
+
+        return $this;
+    }
+
+    /**
      * Starts process.
      *
      * @return int Created process PID.
      * @throws PosixException When fork() call fails.
+     * @throws Control\Exception\AlreadyRunningException When a process control is already taken by another process.
      * @version 0.0.1
      * @since 0.0.1
      */
     public function start()
     {
+        // prevent from multiple instances if process control is attached
+        if (isset($this->control) && $this->control->isRunning()) {
+            throw new Control\Exception\AlreadyRunningException($this->control->getPid());
+        }
+
         // fork here!
         switch ($pid = \pcntl_fork()) {
             case -1:
@@ -143,6 +180,11 @@ abstract class Process implements ProcessInterface
                 // find current PID
                 $this->pid = \posix_getpid();
 
+                // store PID for control
+                if (isset($this->control)) {
+                    $this->control->setPid($this->pid);
+                }
+
                 try {
                     // install default class signal handlers
                     $this->installSignalHandlers();
@@ -152,6 +194,12 @@ abstract class Process implements ProcessInterface
                 } catch(\Exception $e) {
                     $result = self::EXIT_UNHANDLED_EXCEPTION;
                 }
+
+                // notify controller
+                if (isset($this->control)) {
+                    $this->control->clear();
+                }
+
                 exit(isset($result) ? $result : self::EXIT_NORMAL);
 
             // parent
@@ -226,6 +274,20 @@ abstract class Process implements ProcessInterface
     }
 
     /**
+     * Checks if process with given PID is running.
+     *
+     * @param int $pid Process PID.
+     * @return bool Running status.
+     * @version 0.0.1
+     * @since 0.0.1
+     */
+    public static function checkRunning($pid)
+    {
+        // sends check signal to process
+        return \posix_kill($pid, 0);
+    }
+
+    /**
      * Checks whether process is running.
      *
      * @return bool Running status.
@@ -234,8 +296,7 @@ abstract class Process implements ProcessInterface
      */
     public function isRunning()
     {
-        // sends check signal to process
-        return \posix_kill($this->pid, 0);
+        return isset($this->pid) && self::checkRunning($this->pid);
     }
 
     /**
